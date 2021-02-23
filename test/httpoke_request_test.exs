@@ -1,5 +1,5 @@
 defmodule HttpokeTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest Httpoke
 
   test "building a request" do
