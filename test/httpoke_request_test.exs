@@ -32,8 +32,7 @@ defmodule HttpokeTest do
              Httpoke.request(url: "http://example.com/")
              |> Httpoke.dispatch()
 
-    dispatcher = fn req ->
-      req |> IO.inspect(label: "req")
+    dispatcher = fn _req ->
       {:ok, :the_response}
     end
 
@@ -53,5 +52,21 @@ defmodule HttpokeTest do
     assert {:error, "the dispatcher is not set"} =
              Httpoke.request(url: "http://example.com/", method: :get)
              |> Httpoke.dispatch()
+  end
+
+  test "basic auth helper" do
+    # We call the basic_auth two times. Authrorization header can only be once
+    # and must not be a list https://tools.ietf.org/html/rfc7235#appendix-C
+    req =
+      Httpoke.request(headers: [{"a-key", "a-value"}])
+      |> Httpoke.basic_auth("username-original", "********")
+      |> Httpoke.Request.merge_headers("a-key": "another-value")
+      |> Httpoke.basic_auth("username-new", "********")
+
+    expected = ["Basic #{Base.encode64("username-new:********")}"]
+    assert expected == :proplists.get_all_values("authorization", req.headers)
+
+    # Other headers are still merged
+    assert "a-value, another-value" = :proplists.get_value("a-key", req.headers)
   end
 end

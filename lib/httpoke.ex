@@ -7,4 +7,5 @@ defmodule Httpoke do
 
   defdelegate merge_path(req, path), to: Request
   defdelegate dispatch(req), to: Request
+  defdelegate basic_auth(req, username, password), to: Request
 end
