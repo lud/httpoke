@@ -49,7 +49,28 @@ defmodule Questie.HttpbinSuite do
         end
       end
 
-      # test "basic auth", %{opts: opts}
+      test "basic auth", ctx do
+        username = "SomeUser"
+        password = "SomePassword"
+
+        assert {:ok, _} =
+                 _dispatch(ctx,
+                   url: @remote,
+                   method: :get,
+                   basic_auth: {username, password},
+                   path: "/basic-auth/#{username}/#{password}"
+                 )
+
+        assert {:ok, bad_res} =
+                 _dispatch(ctx,
+                   url: @remote,
+                   method: :get,
+                   basic_auth: {"bad_name", "bad_password"},
+                   path: "/basic-auth/#{username}/#{password}"
+                 )
+
+        assert 401 = Questie.get_status(bad_res)
+      end
     end
   end
 end

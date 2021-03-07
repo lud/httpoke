@@ -87,7 +87,8 @@ defmodule Questie.Request do
     path: :merge_path,
     dispatcher: :put_dispatcher,
     headers: :merge_headers,
-    path: :merge_path
+    path: :merge_path,
+    basic_auth: :basic_auth
   )
 
   defp req_opt({opt, v}, _) do
@@ -179,6 +180,10 @@ defmodule Questie.Request do
         raise ArgumentError, message: "invalid header name #{inspect(other)}"
     end
     |> String.downcase()
+  end
+
+  def basic_auth(req, {username, password}) do
+    basic_auth(req, username, password)
   end
 
   def basic_auth(%Request{} = req, username, password)

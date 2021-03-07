@@ -64,11 +64,11 @@ defmodule QuestieTest do
     # We expect the value from the last call to be set, and only this one.
     req =
       Questie.request(headers: [{"a-key", "a-value"}])
-      |> Questie.basic_auth("username-original", "hunter2")
+      |> Questie.basic_auth("username-original", "mypass")
       |> Questie.Request.merge_headers("a-key": "another-value")
-      |> Questie.basic_auth("username-new", "hunter2")
+      |> Questie.basic_auth("username-new", "mypass")
 
-    expected = ["Basic #{Base.encode64("username-new:hunter2")}"]
+    expected = ["Basic #{Base.encode64("username-new:mypass")}"]
     assert expected == :proplists.get_all_values("authorization", req.headers)
 
     # Other headers are still merged
