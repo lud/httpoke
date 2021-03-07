@@ -1,4 +1,4 @@
-defmodule Httpoke.Request do
+defmodule Questie.Request do
   alias __MODULE__
 
   @enforce_keys [:__no_litteral__]
@@ -6,7 +6,8 @@ defmodule Httpoke.Request do
             url: nil,
             method: nil,
             assigns: %{},
-            dispatcher: nil
+            dispatcher: nil,
+            encoder: nil
 
   @methods ~w(get post put patch delete options head)a
   @options ~w(method url dispatcher headers)a
@@ -23,7 +24,7 @@ defmodule Httpoke.Request do
   end
 
   ##
-  ## 
+  ##
   ##
 
   defp init_check_opt({key, value}, %Request{} = req) when key in @options do
@@ -31,7 +32,8 @@ defmodule Httpoke.Request do
   end
 
   defp init_check_opt({key, value}, _) do
-    raise ArgumentError, message: "unknown option #{inspect(key)} with value: #{inspect(value)}"
+    raise ArgumentError,
+      message: "unknown option #{inspect(key)} with value: #{inspect(value)}"
   end
 
   defp init_check_opt(other, _) do
@@ -55,22 +57,24 @@ defmodule Httpoke.Request do
   end
 
   defp init_opt({opt, v}, _) do
-    raise ArgumentError, message: "invalid value for option #{opt}: #{inspect(v)}"
+    raise ArgumentError,
+      message: "invalid value for option #{opt}: #{inspect(v)}"
   end
 
   ##
-  ## 
+  ##
   ##
 
-  defp put_url(%Request{} = req, url) when is_url(url) do
+  defp put_url(%Request{} = req, url) do
     %Request{req | url: URI.parse(url)}
   end
 
-  defp put_method(%Request{} = req, method) when is_method(method) do
+  defp put_method(%Request{} = req, method) do
     %Request{req | method: method}
   end
 
-  defp put_dispatcher(%Request{} = req, dispatcher) when is_dispatcher(dispatcher) do
+  defp put_dispatcher(%Request{} = req, dispatcher)
+       when is_dispatcher(dispatcher) do
     %Request{req | dispatcher: dispatcher}
   end
 
@@ -84,7 +88,8 @@ defmodule Httpoke.Request do
 
   @single_value_headers ~w(authorization)
 
-  def merge_headers(%Request{headers: current_headers} = req, headers) when is_list(headers) do
+  def merge_headers(%Request{headers: current_headers} = req, headers)
+      when is_list(headers) do
     headers =
       headers
       |> Enum.map(&cast_header/1)
@@ -113,14 +118,20 @@ defmodule Httpoke.Request do
   end
 
   defp cast_header(header) do
-    raise ArgumentError, message: "invalid header, expected a 2-tuple, got: #{inspect(header)}"
+    raise ArgumentError,
+      message: "invalid header, expected a 2-tuple, got: #{inspect(header)}"
   end
 
   defp cast_header_key(k) do
     case k do
-      k when is_binary(k) -> k
-      k when is_atom(k) -> Atom.to_string(k)
-      other -> raise ArgumentError, message: "invalid header name #{inspect(other)}"
+      k when is_binary(k) ->
+        k
+
+      k when is_atom(k) ->
+        Atom.to_string(k)
+
+      other ->
+        raise ArgumentError, message: "invalid header name #{inspect(other)}"
     end
     |> String.downcase()
   end
@@ -131,8 +142,20 @@ defmodule Httpoke.Request do
     merge_headers(req, [{"authorization", auth}])
   end
 
+  def encode_with(%Request{} = req, encode, opts) when is_function(encode, 2) do
+    put_encoder(req, fn body -> encode.(body, opts) end)
+  end
+
+  def encode_with(%Request{} = req, encoder) when is_function(encoder, 1) do
+    put_encoder(req, encoder)
+  end
+
+  def put_encoder(req, encoder) do
+    %Request{req | encoder: encoder}
+  end
+
   ##
-  ## 
+  ##
   ##
 
   def dispatch(%Request{} = req) do

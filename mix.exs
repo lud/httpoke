@@ -1,9 +1,9 @@
-defmodule Httpoke.MixProject do
+defmodule Questie.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :httpoke,
+      app: :questie,
       version: "0.1.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
@@ -18,8 +18,10 @@ defmodule Httpoke.MixProject do
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  # Rut "mix help deps" to learn about dependencies.
   defp deps do
-    []
+    [
+      {:jason, "~> 1.2", only: :test, runtime: false}
+    ]
   end
 end
