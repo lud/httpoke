@@ -64,11 +64,11 @@ defmodule QuestieTest do
     # We expect the value from the last call to be set, and only this one.
     req =
       Questie.request(headers: [{"a-key", "a-value"}])
-      |> Questie.basic_auth("username-original", "********")
+      |> Questie.basic_auth("username-original", "hunter2")
       |> Questie.Request.merge_headers("a-key": "another-value")
-      |> Questie.basic_auth("username-new", "********")
+      |> Questie.basic_auth("username-new", "hunter2")
 
-    expected = ["Basic #{Base.encode64("username-new:********")}"]
+    expected = ["Basic #{Base.encode64("username-new:hunter2")}"]
     assert expected == :proplists.get_all_values("authorization", req.headers)
 
     # Other headers are still merged
@@ -78,14 +78,25 @@ defmodule QuestieTest do
   test "setting a body with an encoding function" do
     dispatcher = fn req ->
       assert Jason.decode!(req.body) == %{"hello" => "world"}
-      {:ok, nil}
+      {:ok, :body_was_json}
     end
 
-    assert {:ok, _} =
+    assert {:ok, :body_was_json} =
              Questie.request(dispatcher: dispatcher, url: "/", method: :post)
              |> Questie.encode_with(&Jason.encode/1)
              |> Questie.put_body(%{hello: :world})
              |> Questie.dispatch()
-             |> IO.inspect(label: "encoded")
+
+    # Default behaviour for GET request is to skip body encoding
+
+    dispatcher = fn req ->
+      assert req.body == nil
+      {:ok, :body_was_ni}
+    end
+
+    assert {:ok, :body_was_ni} =
+             Questie.request(dispatcher: dispatcher, url: "/", method: :get)
+             |> Questie.encode_with(&Jason.encode/1)
+             |> Questie.dispatch()
   end
 end

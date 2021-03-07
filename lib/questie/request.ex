@@ -1,5 +1,21 @@
+defmodule Questie.Request.OptsCompiler do
+  # We expect a keyword of option_name => fun_name, both atoms
+  defmacro defoptsp(name, opt_map) do
+    opt_map
+    |> Enum.map(fn {opt, fun} ->
+      quote bind_quoted: [name: name, opt: opt, fun: fun] do
+        defp unquote(name)({unquote(opt), value}, req) do
+          unquote(fun)(req, value)
+        end
+      end
+    end)
+  end
+end
+
 defmodule Questie.Request do
   alias __MODULE__
+  require Questie.Request.OptsCompiler
+  alias Questie.Request.OptsCompiler
 
   @enforce_keys [:__no_litteral__]
   defstruct headers: [],
@@ -45,27 +61,13 @@ defmodule Questie.Request do
     raise ArgumentError, message: "invalid option: #{inspect(other)}"
   end
 
-  defp init_opt({:method, method}, req) when is_method(method) do
-    put_method(req, method)
-  end
-
-  defp init_opt({:method, method}, req) when is_loose_method(method) do
-    # we should create a cast mapping function
-    method = method |> to_string() |> String.downcase() |> String.to_existing_atom()
-    put_method(req, method)
-  end
-
-  defp init_opt({:url, url}, req) when is_url(url) do
-    put_url(req, url)
-  end
-
-  defp init_opt({:dispatcher, dispatcher}, req) when is_dispatcher(dispatcher) do
-    put_dispatcher(req, dispatcher)
-  end
-
-  defp init_opt({:headers, headers}, req) when is_list(headers) do
-    merge_headers(req, headers)
-  end
+  OptsCompiler.defoptsp(:init_opt,
+    method: :put_method,
+    url: :put_url,
+    dispatcher: :put_dispatcher,
+    headers: :merge_headers,
+    path: :merge_path
+  )
 
   defp init_opt({opt, v}, _) do
     raise ArgumentError,
@@ -76,16 +78,27 @@ defmodule Questie.Request do
   ##
   ##
 
-  defp put_url(%Request{} = req, url) do
+  def put_url(%Request{} = req, url) when is_url(url) do
     %Request{req | url: URI.parse(url)}
   end
 
-  defp put_method(%Request{} = req, method) do
+  def put_method(%Request{} = req, method) when is_method(method) do
     %Request{req | method: method}
   end
 
-  defp put_dispatcher(%Request{} = req, dispatcher)
-       when is_dispatcher(dispatcher) do
+  def put_method(%Request{} = req, method) when is_loose_method(method) do
+    # we should create a cast mapping function
+    method = method |> to_string() |> String.downcase() |> String.to_existing_atom()
+    %Request{req | method: method}
+  end
+
+  def put_method(%Request{} = req, other) do
+    raise ArgumentError,
+      message: "invalid method #{inspect(other)}, expected one of #{inspect(@methods)}"
+  end
+
+  def put_dispatcher(%Request{} = req, dispatcher)
+      when is_dispatcher(dispatcher) do
     %Request{req | dispatcher: dispatcher}
   end
 
@@ -207,12 +220,12 @@ defmodule Questie.Request do
     {:ok, req}
   end
 
-  defp prepare_body(%Request{method: method, encoder: encoder, body: body} = req)
-       when is_function(encoder, 1) do
+  defp prepare_body(%Request{encoder: encoder} = req) when is_function(encoder, 1) do
+    %Request{method: method, encoder: encoder, body: body, skip_encoding_methods: skipped} = req
     # If the user wants to send a body with a GET request it is legit. For
     # convenience, we have a :skip_encoding_methods list that will make the
     # behaviour more natural.
-    if nil == body and req.method in req.skip_encoding_methods do
+    if nil == body and is_list(skipped) and method in skipped do
       {:ok, req}
     else
       case encoder.(req.body) do
