@@ -57,6 +57,7 @@ defmodule HttpokeTest do
   test "basic auth helper" do
     # We call the basic_auth two times. Authrorization header can only be once
     # and must not be a list https://tools.ietf.org/html/rfc7235#appendix-C
+    # We expect the value from the last call to be set, and only this one.
     req =
       Httpoke.request(headers: [{"a-key", "a-value"}])
       |> Httpoke.basic_auth("username-original", "********")
@@ -69,4 +70,9 @@ defmodule HttpokeTest do
     # Other headers are still merged
     assert "a-value, another-value" = :proplists.get_value("a-key", req.headers)
   end
+
+  test "setting a body with an encoding function" do
+  end
+
+  test "setting a "
 end
