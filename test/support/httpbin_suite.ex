@@ -81,6 +81,26 @@ defmodule Questie.HttpbinSuite do
 
         assert 401 = Questie.get_status(bad_res)
 
+        # hidden should be the same but it returns 404 on failure
+
+        assert {:ok, response} =
+                 _dispatch(ctx,
+                   method: :get,
+                   basic_auth: {username, password},
+                   path: "/hidden-basic-auth/#{username}/#{password}"
+                 )
+
+        assert 200 = Questie.get_status(response)
+
+        assert {:ok, bad_res} =
+                 _dispatch(ctx,
+                   method: :get,
+                   basic_auth: {"bad_name", "bad_password"},
+                   path: "/hidden-basic-auth/#{username}/#{password}"
+                 )
+
+        assert 404 = Questie.get_status(bad_res)
+
         # -- Bearer -----------------------------------------------------------
 
         token = "7db53f49b48f55fa2765a61544879676.super-secret.token"
