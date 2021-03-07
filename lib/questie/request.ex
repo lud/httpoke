@@ -1,14 +1,16 @@
 defmodule Questie.Request.OptsCompiler do
   # We expect a keyword of option_name => fun_name, both atoms
-  defmacro defoptsp(name, opt_map) do
-    opt_map
-    |> Enum.map(fn {opt, fun} ->
-      quote bind_quoted: [name: name, opt: opt, fun: fun] do
-        defp unquote(name)({unquote(opt), value}, req) do
-          unquote(fun)(req, value)
+  defmacro defoptsp(name, opt2fun) do
+    Module.put_attribute(__CALLER__.module, name, Keyword.keys(opt2fun))
+
+    _checkers =
+      Enum.map(opt2fun, fn {opt, fun} ->
+        quote bind_quoted: [name: name, opt: opt, fun: fun] do
+          defp unquote(name)({unquote(opt), value}, req) do
+            unquote(fun)(req, value)
+          end
         end
-      end
-    end)
+      end)
   end
 end
 
@@ -24,13 +26,13 @@ defmodule Questie.Request do
             body: nil,
             assigns: %{},
             dispatcher: nil,
+            dispatcher_opts: [],
             encoder: nil,
             skip_encoding_methods: ~w(get options head)a
 
   @methods ~w(get post put patch delete options head)a
   @loose_methods ~w(GET POST PUT PATCH DELETE OPTIONS HEAD)a ++
                    ~w(GET POST PUT PATCH DELETE OPTIONS HEAD)
-  @options ~w(method url dispatcher headers)a
 
   defguard is_method(method) when method in @methods
   defguard is_loose_method(method) when method in @loose_methods
@@ -41,35 +43,54 @@ defmodule Questie.Request do
                   is_function(dispatcher, 1)
 
   def new(opts \\ []) do
-    Enum.reduce(opts, Request.__struct__(), &init_check_opt/2)
+    Enum.reduce(opts, Request.__struct__(), &check_init_opt/2)
+  end
+
+  def merge_opts(%Request{} = req, opts) do
+    Enum.reduce(opts, req, &check_merge_opt/2)
   end
 
   ##
   ##
   ##
 
-  defp init_check_opt({key, value}, %Request{} = req) when key in @options do
-    init_opt({key, value}, req)
+  defp check_init_opt({key, value}, %Request{} = req) when key in @req_opt do
+    req_opt({key, value}, req)
   end
 
-  defp init_check_opt({key, value}, _) do
+  defp check_init_opt(opt, req) do
+    bad_option(opt, req)
+  end
+
+  defp check_merge_opt({key, value}, %Request{} = req) when key in @req_opt do
+    # @todo define merge_opt if we need a different behaviour from init when
+    #       overriding opts
+    req_opt({key, value}, req)
+  end
+
+  defp check_merge_opt(opt, req) do
+    bad_option(opt, req)
+  end
+
+  defp bad_option({key, value}, _) do
     raise ArgumentError,
       message: "unknown option #{inspect(key)} with value: #{inspect(value)}"
   end
 
-  defp init_check_opt(other, _) do
+  defp bad_option(other, _) do
     raise ArgumentError, message: "invalid option: #{inspect(other)}"
   end
 
-  OptsCompiler.defoptsp(:init_opt,
+  OptsCompiler.defoptsp(:req_opt,
     method: :put_method,
     url: :put_url,
+    path: :merge_path,
     dispatcher: :put_dispatcher,
     headers: :merge_headers,
     path: :merge_path
   )
 
-  defp init_opt({opt, v}, _) do
+  defp req_opt({opt, v}, _) do
     raise ArgumentError,
       message: "invalid value for option #{opt}: #{inspect(v)}"
   end
