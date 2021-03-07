@@ -8,7 +8,7 @@ if Code.ensure_loaded?(HTTPoison) do
         url: URI.to_string(req.url),
         body: req.body || "",
         headers: req.headers,
-        params: %{},
+        params: req.params,
         options: req.dispatcher_opts
       }
 
@@ -19,6 +19,10 @@ if Code.ensure_loaded?(HTTPoison) do
   defimpl Questie.Response.Adapter, for: HTTPoison.Response do
     def get_status(response) do
       response.status_code
+    end
+
+    def get_headers(response) do
+      Map.fetch!(response, :headers)
     end
   end
 end

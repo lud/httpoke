@@ -2,39 +2,41 @@ defmodule Questie.HttpbinSuite do
   use ExUnit.CaseTemplate
 
   using do
-    #
     quote location: :keep do
-      #
-      alias Questie.HttpbinSuite
-
       @remote "http://127.0.0.1:4444/"
+      # @remote "https://4da084a0798d.ngrok.io/"
 
-      def _request(req, opts \\ [])
+      import Questie.HttpbinSuite, only: :macros
 
-      def _request(%{opts: opts} = req, overrides) do
+      defp _request(req, opts \\ [])
+
+      defp _request(%Questie.Request{} = req, overrides) do
+        Questie.merge_opts(req, overrides)
+      end
+
+      defp _request(%{opts: opts} = req, overrides) do
         _request(opts, overrides)
       end
 
-      def _request(%Questie.Request{} = req, overrides) do
-        req
-        |> Questie.merge_opts(url: @remote)
-        |> Questie.merge_opts(overrides)
-      end
-
-      def _request(opts, overrides) when is_list(opts) do
+      defp _request(opts, overrides) when is_list(opts) do
         opts
+        |> Keyword.put_new(:url, @remote)
         |> Questie.request()
         |> _request(overrides)
       end
 
-      def _dispatch(req_or_opts, overrides \\ [])
+      defp _dispatch(req_or_opts, overrides \\ [])
 
-      def _dispatch(req_or_opts, overrides) do
+      defp _dispatch(req_or_opts, overrides) do
         req_or_opts
         |> _request(overrides)
         |> Questie.dispatch()
       end
+    end
+  end
 
+  defmacro run_suite(:core) do
+    quote location: :keep do
       test "expect status code", ctx do
         assert {:ok, response} = _dispatch(ctx, method: :get, path: "/get")
 
@@ -112,6 +114,22 @@ defmodule Questie.HttpbinSuite do
                  |> _dispatch()
 
         assert 200 = Questie.get_status(response)
+      end
+    end
+  end
+
+  defmacro run_suite(:redirects) do
+    quote location: :keep do
+      test "redirects", ctx do
+        # We will validate that redirects are not followed
+        assert {:ok, response} =
+                 _request(ctx, method: :get, path: "/redirect-to")
+                 |> Questie.merge_params(url: "/get", status_code: 301)
+                 |> _dispatch
+
+        assert 301 = Questie.get_status(response)
+
+        assert "/get" == Questie.get_header(response, "Location")
       end
     end
   end

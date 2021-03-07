@@ -24,6 +24,7 @@ defmodule Questie.Request do
             url: nil,
             method: nil,
             body: nil,
+            params: [],
             assigns: %{},
             dispatcher: nil,
             dispatcher_opts: [],
@@ -87,6 +88,7 @@ defmodule Questie.Request do
     dispatcher: :put_dispatcher,
     headers: :merge_headers,
     method: :put_method,
+    params: :merge_params,
     path: :merge_path,
     path: :merge_path,
     url: :put_url
@@ -131,6 +133,13 @@ defmodule Questie.Request do
 
   def merge_path(%Request{url: %URI{} = url} = req, path) when is_url(path) do
     %Request{req | url: URI.merge(url, path)}
+  end
+
+  def merge_params(%Request{params: sofar} = req, params)
+      when is_list(params)
+      when is_map(params) do
+    # params are kept in a list to allow array[] params
+    %Request{req | params: sofar ++ Enum.to_list(params)}
   end
 
   @single_value_headers ~w(authorization)
