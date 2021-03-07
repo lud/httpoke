@@ -82,13 +82,14 @@ defmodule Questie.Request do
   end
 
   OptsCompiler.defoptsp(:req_opt,
-    method: :put_method,
-    url: :put_url,
-    path: :merge_path,
+    authorization: :authorization,
+    basic_auth: :basic_auth,
     dispatcher: :put_dispatcher,
     headers: :merge_headers,
+    method: :put_method,
     path: :merge_path,
-    basic_auth: :basic_auth
+    path: :merge_path,
+    url: :put_url
   )
 
   defp req_opt({opt, v}, _) do
@@ -188,7 +189,14 @@ defmodule Questie.Request do
 
   def basic_auth(%Request{} = req, username, password)
       when is_binary(username) and is_binary(password) do
-    auth = "Basic " <> Base.encode64("#{username}:#{password}")
+    authorization(req, "Basic " <> Base.encode64("#{username}:#{password}"))
+  end
+
+  def bearer_token(%Request{} = req, token) when is_binary(token) do
+    authorization(req, "Bearer #{token}")
+  end
+
+  def authorization(%Request{} = req, auth) when is_binary(auth) do
     merge_headers(req, [{"authorization", auth}])
   end
 

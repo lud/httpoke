@@ -65,7 +65,7 @@ defmodule QuestieTest do
     req =
       Questie.request(headers: [{"a-key", "a-value"}])
       |> Questie.basic_auth("username-original", "mypass")
-      |> Questie.Request.merge_headers("a-key": "another-value")
+      |> Questie.merge_headers("a-key": "another-value")
       |> Questie.basic_auth("username-new", "mypass")
 
     expected = ["Basic #{Base.encode64("username-new:mypass")}"]
@@ -73,6 +73,30 @@ defmodule QuestieTest do
 
     # Other headers are still merged
     assert "a-value, another-value" = :proplists.get_value("a-key", req.headers)
+
+    # Using mege_headers also ensures that only one Authorization header is set
+
+    req = Questie.merge_headers(req, [{"AuthOriZation", "some-token"}])
+    assert ["some-token"] == :proplists.get_all_values("authorization", req.headers)
+
+    req = Questie.merge_headers(req, authorization: "other-token")
+    assert ["other-token"] == :proplists.get_all_values("authorization", req.headers)
+  end
+
+  test "bearer auth helper" do
+    req =
+      Questie.request()
+      |> Questie.bearer_token("my_token")
+
+    assert ["Bearer my_token"] == :proplists.get_all_values("authorization", req.headers)
+  end
+
+  test "raw auth helper" do
+    req =
+      Questie.request()
+      |> Questie.authorization("my_token")
+
+    assert ["my_token"] == :proplists.get_all_values("authorization", req.headers)
   end
 
   test "setting a body with an encoding function" do
