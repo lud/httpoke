@@ -36,10 +36,10 @@ defmodule QuestieTest do
       {:ok, :the_response}
     end
 
-    # direct dispatch with the Questie.Request.dispatch/2 skips validation
+    # direct dispatch with the Questie.Request.do_dispatch/2 skips validation
     assert {:ok, :the_response} =
              Questie.request(url: "http://example.com/")
-             |> Questie.Request.dispatch(dispatcher)
+             |> Questie.Request.do_dispatch(dispatcher)
 
     assert {:error, "the method is not set"} =
              Questie.request(url: "http://example.com/", dispatcher: dispatcher)
@@ -76,10 +76,16 @@ defmodule QuestieTest do
   end
 
   test "setting a body with an encoding function" do
-    dispatcher = fn x -> assert Jason.decode!(x) == %{"hello" => "world"} end
+    dispatcher = fn req ->
+      assert Jason.decode!(req.body) == %{"hello" => "world"}
+      {:ok, nil}
+    end
 
-    Questie.request(dispatcher: dispatcher)
-    |> Questie.encode_with(&Jason.encode/1)
-    |> Questie.dispatch()
+    assert {:ok, _} =
+             Questie.request(dispatcher: dispatcher, url: "/", method: :post)
+             |> Questie.encode_with(&Jason.encode/1)
+             |> Questie.put_body(%{hello: :world})
+             |> Questie.dispatch()
+             |> IO.inspect(label: "encoded")
   end
 end

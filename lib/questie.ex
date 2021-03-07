@@ -10,4 +10,5 @@ defmodule Questie do
   defdelegate basic_auth(req, username, password), to: Request
   defdelegate encode_with(req, encode), to: Request
   defdelegate encode_with(req, encode, opts), to: Request
+  defdelegate put_body(req, body), to: Request
 end

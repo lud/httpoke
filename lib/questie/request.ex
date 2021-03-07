@@ -5,14 +5,19 @@ defmodule Questie.Request do
   defstruct headers: [],
             url: nil,
             method: nil,
+            body: nil,
             assigns: %{},
             dispatcher: nil,
-            encoder: nil
+            encoder: nil,
+            skip_encoding_methods: ~w(get options head)a
 
   @methods ~w(get post put patch delete options head)a
+  @loose_methods ~w(GET POST PUT PATCH DELETE OPTIONS HEAD)a ++
+                   ~w(GET POST PUT PATCH DELETE OPTIONS HEAD)
   @options ~w(method url dispatcher headers)a
 
   defguard is_method(method) when method in @methods
+  defguard is_loose_method(method) when method in @loose_methods
   defguard is_url(url) when is_binary(url) or is_struct(url, URI)
 
   defguard is_dispatcher(dispatcher)
@@ -41,6 +46,12 @@ defmodule Questie.Request do
   end
 
   defp init_opt({:method, method}, req) when is_method(method) do
+    put_method(req, method)
+  end
+
+  defp init_opt({:method, method}, req) when is_loose_method(method) do
+    # we should create a cast mapping function
+    method = method |> to_string() |> String.downcase() |> String.to_existing_atom()
     put_method(req, method)
   end
 
@@ -154,24 +165,61 @@ defmodule Questie.Request do
     %Request{req | encoder: encoder}
   end
 
+  def put_body(%Request{} = req, body) do
+    %Request{req | body: body}
+  end
+
   ##
   ##
   ##
 
-  def dispatch(%Request{} = req) do
-    case validate(req) do
-      {:ok, _req} -> dispatch(req, req.dispatcher)
+  def dispatch(%Request{dispatcher: dispatcher} = req) do
+    dispatch(req, dispatcher)
+  end
+
+  def dispatch(%Request{} = req, dispatcher) do
+    with {:ok, req} <- validate(req),
+         {:ok, req} <- prepare(req) do
+      do_dispatch(req, req.dispatcher)
+    else
       {:error, _} = err -> err
     end
   end
 
   @doc false
-  def dispatch(%Request{} = req, dispatcher) when is_atom(dispatcher) do
+  def do_dispatch(%Request{} = req, dispatcher) when is_atom(dispatcher) do
     dispatcher.dispatch(req)
   end
 
-  def dispatch(%Request{} = req, dispatcher) when is_function(dispatcher, 1) do
+  def do_dispatch(%Request{} = req, dispatcher) when is_function(dispatcher, 1) do
     dispatcher.(req)
+  end
+
+  defp prepare(%Request{} = req) do
+    with {:ok, req} <- prepare_body(req) do
+      {:ok, req}
+    else
+      {:error, _} = err -> err
+    end
+  end
+
+  defp prepare_body(%Request{encoder: nil} = req) do
+    {:ok, req}
+  end
+
+  defp prepare_body(%Request{method: method, encoder: encoder, body: body} = req)
+       when is_function(encoder, 1) do
+    # If the user wants to send a body with a GET request it is legit. For
+    # convenience, we have a :skip_encoding_methods list that will make the
+    # behaviour more natural.
+    if nil == body and req.method in req.skip_encoding_methods do
+      {:ok, req}
+    else
+      case encoder.(req.body) do
+        {:ok, body} -> {:ok, %Request{req | body: body}}
+        {:error, _} = err -> err
+      end
+    end
   end
 
   @validators [:url, :method, :dispatcher]
