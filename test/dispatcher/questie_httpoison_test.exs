@@ -6,6 +6,8 @@ defmodule Questie.HTTPoisonDispatcherTest do
     {:ok, %{opts: opts}}
   end
 
+  run_suite(:single)
   run_suite(:core)
   run_suite(:redirects)
+  run_suite(:content_encoding)
 end

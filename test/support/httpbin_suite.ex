@@ -1,10 +1,14 @@
 defmodule Questie.HttpbinSuite do
   use ExUnit.CaseTemplate
 
+  def remote do
+    "http://127.0.0.1:4444/"
+    # "https://4da084a0798d.ngrok.io/"
+  end
+
   using do
     quote location: :keep do
-      @remote "http://127.0.0.1:4444/"
-      # @remote "https://4da084a0798d.ngrok.io/"
+      @remote Questie.HttpbinSuite.remote()
 
       import Questie.HttpbinSuite, only: :macros
 
@@ -35,7 +39,7 @@ defmodule Questie.HttpbinSuite do
     end
   end
 
-  defmacro run_suite(:core) do
+  defmacro run_suite(:single) do
     quote location: :keep do
       test "expect status code", ctx do
         assert {:ok, response} = _dispatch(ctx, method: :get, path: "/get")
@@ -47,7 +51,11 @@ defmodule Questie.HttpbinSuite do
         assert {:error, {Questie.Response, :bad_status, _}} =
                  Questie.expect_status(response, 400..499)
       end
+    end
+  end
 
+  defmacro run_suite(:core) do
+    quote location: :keep do
       test "check http verbs", ctx do
         base = _request(ctx)
 
@@ -124,12 +132,42 @@ defmodule Questie.HttpbinSuite do
         # We will validate that redirects are not followed
         assert {:ok, response} =
                  _request(ctx, method: :get, path: "/redirect-to")
+                 # url here is a query parameter
                  |> Questie.merge_params(url: "/get", status_code: 301)
                  |> _dispatch
 
         assert 301 = Questie.get_status(response)
 
-        assert "/get" == Questie.get_header(response, "Location")
+        # Some adapters puts all headers to lowercase so here we cast everythin
+        # to downcase.
+
+        {header_key, "/get"} =
+          Enum.find(Questie.get_headers(response), fn {key, _} ->
+            key in ["location", "Location"]
+          end)
+
+        assert "/get" == Questie.get_header(response, header_key)
+      end
+    end
+  end
+
+  defmacro run_suite(:content_encoding) do
+    quote location: :keep do
+      test "json encoding & decoding", ctx do
+        body = %{"string_key" => 'list value', :atom_key => :atom_value}
+        expected = %{"string_key" => 'list value', "atom_key" => "atom_value"}
+
+        assert {:ok, response} =
+                 _request(ctx,
+                   method: :post,
+                   path: "/anything",
+                   encoder: &Jason.encode/1,
+                   body: body
+                 )
+                 |> _dispatch
+
+        assert {:ok, response} = Questie.decode_body(response, &Jason.decode/1)
+        assert {:ok, %{"json" => ^expected}} = Questie.get_body(response)
       end
     end
   end

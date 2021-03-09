@@ -107,7 +107,7 @@ defmodule QuestieTest do
 
     assert {:ok, :body_was_json} =
              Questie.request(dispatcher: dispatcher, url: "/", method: :post)
-             |> Questie.encode_with(&Jason.encode/1)
+             |> Questie.encode_body(&Jason.encode/1)
              |> Questie.put_body(%{hello: :world})
              |> Questie.dispatch()
 
@@ -120,7 +120,7 @@ defmodule QuestieTest do
 
     assert {:ok, :body_was_ni} =
              Questie.request(dispatcher: dispatcher, url: "/", method: :get)
-             |> Questie.encode_with(&Jason.encode/1)
+             |> Questie.encode_body(&Jason.encode/1)
              |> Questie.dispatch()
   end
 end

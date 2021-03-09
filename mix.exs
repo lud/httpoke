@@ -25,8 +25,9 @@ defmodule Questie.MixProject do
   # Rut "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jason, "~> 1.2", only: :test, runtime: false},
-      {:httpoison, "~> 1.8", only: :test}
+      {:httpoison, "~> 1.8", only: :test},
+      {:finch, "~> 0.6", only: :test},
+      {:jason, "~> 1.2", only: :test, runtime: false}
     ]
   end
 end

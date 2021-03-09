@@ -85,11 +85,12 @@ defmodule Questie.Request do
   OptsCompiler.defoptsp(:req_opt,
     authorization: :authorization,
     basic_auth: :basic_auth,
+    body: :put_body,
     dispatcher: :put_dispatcher,
+    encoder: :encode_body,
     headers: :merge_headers,
     method: :put_method,
     params: :merge_params,
-    path: :merge_path,
     path: :merge_path,
     url: :put_url
   )
@@ -107,6 +108,20 @@ defmodule Questie.Request do
     %Request{req | url: URI.parse(url)}
   end
 
+  def url_to_string(%Request{url: nil}) do
+    ""
+  end
+
+  def url_to_string(%Request{url: %URI{query: query} = url, params: params}) do
+    url = URI.to_string(url)
+    # This is almost the same implementation as in HTTPoison.Base
+    case {query, params} do
+      {_, []} -> url
+      {nil, params} -> url <> "?" <> URI.encode_query(params)
+      {_, params} -> url <> "&" <> URI.encode_query(params)
+    end
+  end
+
   def put_method(%Request{} = req, method) when is_method(method) do
     %Request{req | method: method}
   end
@@ -117,7 +132,7 @@ defmodule Questie.Request do
     %Request{req | method: method}
   end
 
-  def put_method(%Request{} = req, other) do
+  def put_method(%Request{}, other) do
     raise ArgumentError,
       message: "invalid method #{inspect(other)}, expected one of #{inspect(@methods)}"
   end
@@ -209,11 +224,11 @@ defmodule Questie.Request do
     merge_headers(req, [{"authorization", auth}])
   end
 
-  def encode_with(%Request{} = req, encode, opts) when is_function(encode, 2) do
+  def encode_body(%Request{} = req, encode, opts) when is_function(encode, 2) do
     put_encoder(req, fn body -> encode.(body, opts) end)
   end
 
-  def encode_with(%Request{} = req, encoder) when is_function(encoder, 1) do
+  def encode_body(%Request{} = req, encoder) when is_function(encoder, 1) do
     put_encoder(req, encoder)
   end
 
@@ -236,7 +251,7 @@ defmodule Questie.Request do
   def dispatch(%Request{} = req, dispatcher) do
     with {:ok, req} <- validate(req),
          {:ok, req} <- prepare(req) do
-      do_dispatch(req, req.dispatcher)
+      do_dispatch(req, dispatcher)
     else
       {:error, _} = err -> err
     end

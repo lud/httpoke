@@ -30,6 +30,20 @@ defmodule Questie.Response do
   def get_headers(response) do
     Adapter.get_headers(response)
   end
+
+  def get_body(response) do
+    Adapter.get_body(response)
+  end
+
+  def decode_body(response, decode) when is_function(decode, 1) do
+    body = Adapter.get_body(response)
+    body = decode.(body)
+    {:ok, Adapter.put_body(response, body)}
+  end
+
+  def decode_body(response, decode, opts) when is_function(decode, 2) do
+    decode_body(response, fn body -> decode.(body, opts) end)
+  end
 end
 
 defprotocol Questie.Response.Adapter do
@@ -37,4 +51,8 @@ defprotocol Questie.Response.Adapter do
 
   # must return a list
   def get_headers(response)
+
+  def get_body(response)
+
+  def put_body(response, body)
 end

@@ -22,7 +22,15 @@ if Code.ensure_loaded?(HTTPoison) do
     end
 
     def get_headers(response) do
-      Map.fetch!(response, :headers)
+      response.headers
+    end
+
+    def get_body(response) do
+      response.body
+    end
+
+    def put_body(response, body) do
+      %{response | body: body}
     end
   end
 end
